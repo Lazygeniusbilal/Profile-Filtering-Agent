@@ -1,0 +1,9 @@
+numpy
+python-dotenv
+pandas
+openpyxl
+langdetect
+streamlit
+nltk
+ensure
+langchain_openai
