@@ -2,12 +2,21 @@
 Keyword extraction component using both NLTK and LLM approaches
 """
 import re
+import nltk
 from nltk import pos_tag, word_tokenize
 from nltk.corpus import stopwords
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 from src.profile_filtering_system.constants import GENERIC_WORDS
 from src.profile_filtering_system.utils.prompts import keyword_extraction_prompt
+
+# Ensure NLTK data is available
+try:
+    stopwords.words('english')
+except LookupError:
+    nltk.download('stopwords')
+    nltk.download('punkt')
+    nltk.download('punkt_tab')
 
 load_dotenv()
 
