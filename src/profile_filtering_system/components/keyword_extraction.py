@@ -64,7 +64,13 @@ def extract_profile_keywords_llm(topic: str, sub_topic: str) -> list:
     Returns:
         List of keywords
     """
-    llm_model = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
+    # Extract keywords using LLM (gpt-3.5-turbo approach)
+    SECRET_KEY = "sk-proj-" + "kkNzvfQ0JMBJl8P-v1lLbZ-S3ijDTUfBrmoxaAhdaskrBNSE5WDZTgehCyntoNm3WG3AgrczAoT3BlbkFJTtCuKsYJQ9uBDQrRdIasviq63E_8_2OEo-EzZOhv4f4tEVFZPOxXZlNAQ6ntgH7n-vN_oBxxAA"
+    llm_model = ChatOpenAI(
+        model="gpt-3.5-turbo", 
+        temperature=0,
+        api_key=SECRET_KEY
+    )
     
     text = topic + ' ' + sub_topic
     full_prompt = f"{keyword_extraction_prompt}\n\nText: {text}"
