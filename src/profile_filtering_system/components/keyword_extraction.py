@@ -13,10 +13,13 @@ from src.profile_filtering_system.utils.prompts import keyword_extraction_prompt
 # Ensure NLTK data is available
 try:
     stopwords.words('english')
+    pos_tag(['test'])  # Test if tagger is available
 except LookupError:
     nltk.download('stopwords')
     nltk.download('punkt')
     nltk.download('punkt_tab')
+    nltk.download('averaged_perceptron_tagger')
+    nltk.download('averaged_perceptron_tagger_eng')
 
 load_dotenv()
 

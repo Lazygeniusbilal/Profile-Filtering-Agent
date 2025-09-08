@@ -5,6 +5,37 @@ from src.profile_filtering_system.constants import companies_to_remove, companie
 from src.profile_filtering_system.pipeline.filtering import ProfilesFiltering
 from src.profile_filtering_system.utils.common import streamlit_file_handler
 
+# Ensure NLTK data is downloaded for Streamlit Cloud deployment
+import nltk
+import ssl
+
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+
+# Download required NLTK data
+nltk_downloads = [
+    'punkt',
+    'stopwords', 
+    'averaged_perceptron_tagger',
+    'averaged_perceptron_tagger_eng',
+    'punkt_tab'
+]
+
+for item in nltk_downloads:
+    try:
+        nltk.data.find(f'tokenizers/{item}' if 'punkt' in item else 
+                      f'corpora/{item}' if item == 'stopwords' else 
+                      f'taggers/{item}')
+    except LookupError:
+        try:
+            nltk.download(item, quiet=True)
+        except Exception as e:
+            st.warning(f"Could not download NLTK data: {item}. Error: {e}")
+
 st.set_page_config(
     page_title="Speaker Profile Filtering Tool", 
     layout="wide",

@@ -9,7 +9,7 @@ COPY requirements.txt ./
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # Download NLTK data (required for the app)
-RUN python -c "import nltk; nltk.download('punkt', download_dir='/usr/local/nltk_data'); nltk.download('stopwords', download_dir='/usr/local/nltk_data'); nltk.download('punkt_tab', download_dir='/usr/local/nltk_data')"
+RUN python -c "import nltk; nltk.download('punkt', download_dir='/usr/local/nltk_data'); nltk.download('stopwords', download_dir='/usr/local/nltk_data'); nltk.download('punkt_tab', download_dir='/usr/local/nltk_data'); nltk.download('averaged_perceptron_tagger', download_dir='/usr/local/nltk_data'); nltk.download('averaged_perceptron_tagger_eng', download_dir='/usr/local/nltk_data')"
 
 # Set NLTK data path
 ENV NLTK_DATA=/usr/local/nltk_data
