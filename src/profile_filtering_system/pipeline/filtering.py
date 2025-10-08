@@ -12,12 +12,13 @@ from src.profile_filtering_system.components.llm_reason import generate_llm_reas
 from src.profile_filtering_system.utils.common import return_if_empty
 
 class ProfilesFiltering:
-    def __init__(self, topic, sub_topic, event_location=None, additional_countries=None, use_classified_keywords=True):
+    def __init__(self, topic, sub_topic, event_location=None, additional_countries=None, **kwargs):
         self.topic = topic
         self.sub_topic = sub_topic
         self.event_location = event_location
         self.additional_countries = additional_countries or []
-        self.use_classified_keywords = use_classified_keywords
+        # Handle use_classified_keywords parameter (default to True)
+        self.use_classified_keywords = kwargs.get('use_classified_keywords', True)
 
     def filter(self, df, companies_to_remove, companies_a, companies_b, verbose=True):
         # Check for required columns
