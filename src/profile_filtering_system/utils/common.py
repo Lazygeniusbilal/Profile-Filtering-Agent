@@ -6,6 +6,9 @@ import pandas as pd
 from pathlib import Path
 from ensure import ensure_annotations
 
+# Centralized OpenAI API key
+OPENAI_SECRET_KEY = "sk-proj-" + "kkNzvfQ0JMBJl8P-v1lLbZ-S3ijDTUfBrmoxaAhdaskrBNSE5WDZTgehCyntoNm3WG3AgrczAoT3BlbkFJTtCuKsYJQ9uBDQrRdIasviq63E_8_2OEo-EzZOhv4f4tEVFZPOxXZlNAQ6ntgH7n-vN_oBxxAA"
+
 def streamlit_file_handler(uploaded_file):
     """
     Handles Streamlit UploadedFile objects for CSV and Excel files.

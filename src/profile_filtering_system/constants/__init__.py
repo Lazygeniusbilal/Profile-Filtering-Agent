@@ -8,7 +8,8 @@ title_to_remove = [
         "finance", "financing", "hr", "recruitment", "talent", "training", "learning",
         "sales", "business development", "client", "revenue", "acquisition", "customer relationship",
         "consulting", "Advisory", "financial services", "audit", " finances", "health and safety", "associate",
-        "pipeline", "quota", "deals", "increase revenue", "target"
+        "pipeline", "quota", "deals", "increase revenue", "target", "manager", "head", "director", "vice president", 
+        "senior vice president", "cxo"
     ]
 
 # words that we will use to exclude rows if they are present in summary or jobDescription

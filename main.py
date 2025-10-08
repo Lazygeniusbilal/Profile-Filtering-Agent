@@ -32,9 +32,79 @@ for item in nltk_downloads:
                       f'taggers/{item}')
     except LookupError:
         try:
-            nltk.download(item, quiet=True)
+            st.download(item, quiet=True)
         except Exception as e:
             st.warning(f"Could not download NLTK data: {item}. Error: {e}")
+
+
+def calculate_ai_score(row):
+    """
+    Calculate AI score for ranking profiles - higher score = better candidate
+    Uses multiple factors to determine quality of match
+    """
+    score = 0
+    
+    # Criteria scoring (40% of total score)
+    if row.get('criteria_a_passed', False):
+        score += 15  # Highest priority - both Class A and B keywords
+    if row.get('criteria_b_passed', False):
+        score += 12  # High priority - Class A + additional keywords
+    if row.get('criteria_c_passed', False):
+        score += 8   # Good - keywords in summary
+    
+    # Company category scoring (25% of total score)
+    company_category = row.get('Companies Category', '')
+    if company_category == 'Category A':
+        score += 12
+    elif company_category == 'Category B':
+        score += 8
+    elif company_category == 'Category C':
+        score += 4
+    
+    # Content quality scoring (35% of total score)
+    # Title relevance
+    title_len = len(str(row.get('title', '')))
+    if title_len > 10:
+        score += min(8, title_len // 5)  # Up to 8 points for title length
+    
+    # Summary quality
+    summary_len = len(str(row.get('summary', '')))
+    if summary_len > 50:
+        score += min(12, summary_len // 25)  # Up to 12 points for summary depth
+    
+    # Keyword criteria count bonus
+    criteria_count = sum([
+        row.get('criteria_a_passed', False),
+        row.get('criteria_b_passed', False), 
+        row.get('criteria_c_passed', False)
+    ])
+    score += criteria_count * 3  # Bonus for multiple criteria matches
+    
+    return score
+
+
+def get_top_25_percent(df):
+    """
+    Get top 25% of profiles based on AI scoring
+    """
+    if df.empty:
+        return df
+    
+    # Calculate AI scores for each profile
+    df_scored = df.copy()
+    df_scored['ai_score'] = df_scored.apply(calculate_ai_score, axis=1)
+    
+    # Sort by score (highest first) and take top 25%
+    df_sorted = df_scored.sort_values('ai_score', ascending=False)
+    top_25_count = max(1, len(df_sorted) // 4)  # At least 1 profile
+    top_25_df = df_sorted.head(top_25_count)
+    
+    # Remove the ai_score column before returning
+    if 'ai_score' in top_25_df.columns:
+        top_25_df = top_25_df.drop(columns=['ai_score'])
+    
+    return top_25_df
+
 
 st.set_page_config(
     page_title="Speaker Profile Filtering Tool", 
@@ -255,6 +325,9 @@ if run_button:
         st.stop()
     st.info(f"Initial rows: {len(df)}")
     
+    # Store original data in session state for multi-sheet download
+    st.session_state['original_df'] = df.copy()
+    
     # Check for required columns
     required_cols = ['title', 'companyName', 'summary', 'location']
     missing_cols = [col for col in required_cols if col not in df.columns]
@@ -314,7 +387,15 @@ if run_button:
     try:
         # Handle optional event_location
         event_loc = event_location if event_location and event_location.strip() else None
-        pipeline = ProfilesFiltering(topic=topic, sub_topic=sub_topic, event_location=event_loc, additional_countries=valid_additional)
+        
+        # Use the new classified keyword system
+        pipeline = ProfilesFiltering(
+            topic=topic, 
+            sub_topic=sub_topic, 
+            event_location=event_loc, 
+            additional_countries=valid_additional,
+            use_classified_keywords=True  # Enable new classified keyword system
+        )
         
         # We'll create a custom filter method that shows progress
         df_working = df.copy()
@@ -379,16 +460,34 @@ if run_button:
             st.error("No profiles left after seniority filtering. Please check your seniority requirements.")
             st.stop()
         
-        # Step 8: Keyword matching
+        # Step 8: Keyword matching (using new classified system)
         current_step += 1
-        from src.profile_filtering_system.components.keyword_extraction import extract_profile_keywords
-        from src.profile_filtering_system.components.keyword_matching import keyword_match
-        keywords = extract_profile_keywords(topic, sub_topic)
-        st.info(f"🔍 Extracted keywords: {', '.join(keywords)}")
-        df_working = df_working[df_working.apply(lambda row: keyword_match(row, keywords), axis=1)].copy()
-        update_progress("Keyword Matching", len(df_working), current_step)
+        from src.profile_filtering_system.components.keyword_extraction import extract_classified_keywords
+        from src.profile_filtering_system.components.keyword_matching import keyword_match_classified
+        
+        # Extract classified keywords
+        classified_keywords = extract_classified_keywords(topic, sub_topic)
+        class_a_keywords = classified_keywords['class_a']
+        class_b_keywords = classified_keywords['class_b']
+        
+        st.info(f"🔍 Class A Keywords (from '{topic}'): {', '.join(class_a_keywords)}")
+        st.info(f"🔍 Class B Keywords (from '{sub_topic}'): {', '.join(class_b_keywords)}")
+        
+        # Apply keyword matching with detailed criteria tracking
+        keyword_results = df_working.apply(lambda row: keyword_match_classified(row, class_a_keywords, class_b_keywords), axis=1)
+        
+        # Filter profiles that pass at least one criteria
+        df_working = df_working[keyword_results.apply(lambda x: x['passes'])].copy()
+        
+        # Add criteria information to dataframe
+        df_working['keyword_criteria_passed'] = keyword_results.apply(lambda x: ', '.join(x['criteria_passed']) if x['criteria_passed'] else 'None')
+        df_working['criteria_a_passed'] = keyword_results.apply(lambda x: x['criteria_a'])
+        df_working['criteria_b_passed'] = keyword_results.apply(lambda x: x['criteria_b'])
+        df_working['criteria_c_passed'] = keyword_results.apply(lambda x: x['criteria_c'])
+        
+        update_progress("Classified Keyword Matching", len(df_working), current_step)
         if df_working.empty:
-            st.error("No profiles left after keyword matching. Please adjust your topic/subtopic or criteria.")
+            st.error("No profiles left after classified keyword matching. Please adjust your topic/subtopic or criteria.")
             st.stop()
             
         # Step 9: LLM reasoning
@@ -403,6 +502,8 @@ if run_button:
                 criteria.append('Has summary')
             if row.get('Companies Category', ''):
                 criteria.append(f"{row.get('Companies Category')}")
+            if hasattr(row, 'keyword_criteria_passed') and row.get('keyword_criteria_passed', 'None') != 'None':
+                criteria.append(f"Keyword: {row['keyword_criteria_passed']}")
             return ', '.join(criteria)
         
         df_working['criteria_passed'] = df_working.apply(get_criteria_passed, axis=1)
@@ -480,12 +581,21 @@ if st.session_state.get('filtered_df') is not None:
         st.subheader("📈 Results Breakdown")
         category_counts = df_filtered['Companies Category'].value_counts()
         
-        col1, col2, col3 = st.columns(3)
+        # Calculate top 25% count
+        top_25_count = max(1, len(df_filtered) // 4)
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        # Show category breakdown
         for i, (category, count) in enumerate(category_counts.items()):
             color = "🟢" if category == "Category A" else "🟡" if category == "Category B" else "🔵"
             cols = [col1, col2, col3]
             with cols[i % 3]:
                 st.metric(f"{color} {category}", f"{count:,} profiles")
+        
+        # Show AI Top 25% count
+        with col4:
+            st.metric("🤖 AI Top 25%", f"{top_25_count:,} profiles")
     
     # Prepare display columns (for viewing only)
     display_cols = list(df_filtered.columns)
@@ -518,49 +628,101 @@ if st.session_state.get('filtered_df') is not None:
     else:
         df_display = df_filtered
     
-    # Show results
-    if not df_display.empty:
-        st.dataframe(
-            df_display[display_cols].head(100), 
-            use_container_width=True,
-            height=400
-        )
+    # Create tabs for different views
+    tab1, tab2 = st.tabs(["📋 All Results", "🤖 AI Top 25%"])
+    
+    with tab1:
+        # Show all results
+        if not df_display.empty:
+            st.dataframe(
+                df_display[display_cols].head(100), 
+                use_container_width=True,
+                height=400
+            )
+            
+            if len(df_display) > 100:
+                st.info(f"Showing first 100 of {len(df_display)} results. Use search to filter further.")
+        else:
+            st.warning("No profiles match your search criteria.")
+    
+    with tab2:
+        # Show AI Top 25%
+        top_25_df = get_top_25_percent(df_filtered if not search_term else df_display)
         
-        if len(df_display) > 100:
-            st.info(f"Showing first 100 of {len(df_display)} results. Use search to filter further.")
-    else:
-        st.warning("No profiles match your search criteria.")
+        if not top_25_df.empty:
+            st.info(f"🤖 **AI-Selected Top Candidates:** These {len(top_25_df)} profiles scored highest based on keyword relevance, company category, and content quality.")
+            st.dataframe(
+                top_25_df[display_cols], 
+                use_container_width=True,
+                height=400
+            )
+        else:
+            st.warning("No profiles in top 25% selection.")
     
     # Download section
     st.subheader("💾 Download Results")
     if 'llm_reason' in df_filtered.columns and not show_reasoning:
         st.info("💡 **Tip:** AI reasoning explanations are always included in downloads, even when not displayed in the table above.")
     
-    col1, col2 = st.columns(2)
+    # Add info about multi-file CSV format
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+        color: white;
+        padding: 15px;
+        border-radius: 10px;
+        margin: 10px 0;
+    ">
+        <h4 style="color: #fdcb6e; margin-bottom: 10px;">📊 CSV Download Options:</h4>
+        <div style="line-height: 1.6;">
+            <strong>Option 1:</strong> All Profiles (original uploaded data)<br>
+            <strong>Option 2:</strong> AI Recommended (top 25% of filtered results)<br>
+            <strong>Option 3:</strong> Approved Candidates (all filtered results)
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        csv = df_filtered[download_cols].to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📄 Download as CSV",
-            data=csv,
-            file_name=f"filtered_speaker_profiles_{len(df_filtered)}_results.csv",
-            mime="text/csv",
-            help="Download the filtered profiles as a CSV file (includes AI reasoning)"
-        )
+        # CSV download for original data
+        if 'original_df' in st.session_state and st.session_state['original_df'] is not None:
+            original_data = st.session_state['original_df']
+            original_csv = original_data.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📄 All Profiles CSV",
+                data=original_csv,
+                file_name=f"all_profiles_{len(original_data)}_original.csv",
+                mime="text/csv",
+                help="Download all original uploaded profiles"
+            )
+        else:
+            st.info("Original data not available")
     
     with col2:
-        # Create Excel download
-        import io
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            df_filtered[download_cols].to_excel(writer, sheet_name='Filtered_Profiles', index=False)
-        
+        # CSV download for AI Top 25%
+        top_25_df = get_top_25_percent(df_filtered)
+        if not top_25_df.empty:
+            top_25_csv = top_25_df[download_cols].to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="🤖 AI Top 25% CSV",
+                data=top_25_csv,
+                file_name=f"ai_recommended_top25_{len(top_25_df)}_profiles.csv",
+                mime="text/csv",
+                help="Download AI-selected top 25% candidates"
+            )
+        else:
+            st.info("No top 25% data available")
+    
+    with col3:
+        # CSV download for all filtered results
+        filtered_csv = df_filtered[download_cols].to_csv(index=False).encode('utf-8')
         st.download_button(
-            label="📊 Download as Excel",
-            data=buffer.getvalue(),
-            file_name=f"filtered_speaker_profiles_{len(df_filtered)}_results.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            help="Download the filtered profiles as an Excel file (includes AI reasoning)"
+            label="✅ Approved Candidates CSV",
+            data=filtered_csv,
+            file_name=f"approved_candidates_{len(df_filtered)}_filtered.csv",
+            mime="text/csv",
+            help="Download all filtered/approved candidates"
         )
 else:
     st.info("👆 Please upload a file and run filtering to see results.")

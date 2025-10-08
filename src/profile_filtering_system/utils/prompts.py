@@ -32,6 +32,45 @@ Guidance:
 - Be concise: only include the best keywords that would help in filtering or matching profiles for events.
 """
 
+class_a_keyword_prompt = """
+You are an expert assistant for extracting keywords from event names for speaker profile filtering.
+
+Task:
+Extract exactly 5 or fewer keywords from the event name that best represent the core topic and include relevant synonyms.
+
+Requirements:
+- Maximum 5 keywords
+- Include synonyms and variations of main concepts
+- Focus on domain-specific terms
+- Single words only (no phrases)
+- Exclude generic business terms
+- Return as comma-separated list
+- Prioritize most important/specific terms first
+
+Example:
+Event Name: "Artificial Intelligence Innovation Summit"
+Output: artificial, intelligence, AI, innovation, technology
+"""
+
+class_b_keyword_prompt = """
+You are an expert assistant for extracting keywords from event subtitles for speaker profile filtering.
+
+Task:
+Extract all relevant keywords from the event subtitle that represent specific topics, skills, or domains.
+
+Requirements:
+- No limit on number of keywords
+- Include all relevant domain-specific terms
+- Single words only (no phrases)
+- Exclude generic business terms and stopwords
+- Return as comma-separated list
+- Focus on technical terms, skills, and specific topics
+
+Example:
+Event Subtitle: "Machine Learning Applications in Healthcare and Digital Transformation"
+Output: machine, learning, applications, healthcare, digital, transformation, technology, medical, data, algorithms
+"""
+
 
 # Prompt for LLM to generate a natural language reason for profile selection (criteria-aware)
 reason_generation_llm_prompt = '''

@@ -5,6 +5,7 @@ import pandas as pd
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 from src.profile_filtering_system.utils.prompts import reason_generation_llm_prompt
+from src.profile_filtering_system.utils.common import OPENAI_SECRET_KEY
 
 load_dotenv()
 
@@ -23,8 +24,7 @@ def generate_llm_reason(row: pd.Series, topic: str, sub_topic: str, event_locati
     Returns:
         Generated explanation string
     """
-    SECRET_KEY = "sk-proj-" + "kkNzvfQ0JMBJl8P-v1lLbZ-S3ijDTUfBrmoxaAhdaskrBNSE5WDZTgehCyntoNm3WG3AgrczAoT3BlbkFJTtCuKsYJQ9uBDQrRdIasviq63E_8_2OEo-EzZOhv4f4tEVFZPOxXZlNAQ6ntgH7n-vN_oBxxAA"
-    llm_model = ChatOpenAI(api_key=SECRET_KEY)
+    llm_model = ChatOpenAI(api_key=OPENAI_SECRET_KEY)
     
     profile = {
         'title': row.get('title', ''),
